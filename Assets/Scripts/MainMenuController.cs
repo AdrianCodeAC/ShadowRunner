@@ -133,7 +133,7 @@ public class MainMenuController : MonoBehaviour
         for (int level = 1; level <= 5; level++)
         {
             bool unlocked = LevelProgress.IsUnlocked(level);
-            string sceneName = $"level {level}";
+            string sceneName = LevelProgress.GetSceneName(level);
             bool available = Application.CanStreamedLevelBeLoaded(sceneName);
             string label = !unlocked ? $"LEVEL {level}  -  LOCKED" : available ? $"LEVEL {level}" : $"LEVEL {level}  -  COMING SOON";
 

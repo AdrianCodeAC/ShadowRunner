@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.IO;
 using System.Collections;
 
 public class SceneGameplayBootstrap : MonoBehaviour
@@ -81,7 +80,7 @@ public class SceneGameplayBootstrap : MonoBehaviour
             exitDoor = FindInSceneByName(scene, "Cube (4)");
         }
 
-        string nextSceneName = GetNextSceneName(scene);
+        string nextSceneName = LevelProgress.GetNextSceneName(scene.name);
         if (exitDoor != null)
         {
             LevelExitDoor levelExit = exitDoor.GetComponent<LevelExitDoor>();
@@ -135,19 +134,6 @@ public class SceneGameplayBootstrap : MonoBehaviour
 
             lightSource.intensity = Mathf.Min(lightSource.intensity, 0.45f);
         }
-    }
-
-    private static string GetNextSceneName(Scene scene)
-    {
-        int buildIndex = SceneUtility.GetBuildIndexByScenePath(scene.path);
-        int nextBuildIndex = buildIndex + 1;
-        if (buildIndex < 0 || nextBuildIndex >= SceneManager.sceneCountInBuildSettings)
-        {
-            return string.Empty;
-        }
-
-        string nextPath = SceneUtility.GetScenePathByBuildIndex(nextBuildIndex);
-        return Path.GetFileNameWithoutExtension(nextPath);
     }
 
     private static void EnsurePlayerSetup(GameObject player)

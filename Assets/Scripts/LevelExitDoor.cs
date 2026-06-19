@@ -32,7 +32,11 @@ public class LevelExitDoor : MonoBehaviour
             return;
         }
 
-        if (isFinalLevel)
+        string routedScene = LevelProgress.GetNextSceneName(gameObject.scene.name);
+        bool routedFinalLevel = LevelProgress.TryGetLevelNumber(gameObject.scene.name, out int levelNumber) &&
+            levelNumber == 5;
+
+        if (isFinalLevel || routedFinalLevel)
         {
             LevelProgress.UnlockAfterCompleting(gameObject.scene);
             MainMenuController.ShowVictoryOnNextLoad();
@@ -40,10 +44,11 @@ public class LevelExitDoor : MonoBehaviour
             return;
         }
 
-        if (!string.IsNullOrEmpty(nextSceneName))
+        string destination = !string.IsNullOrEmpty(routedScene) ? routedScene : nextSceneName;
+        if (!string.IsNullOrEmpty(destination))
         {
             LevelProgress.UnlockAfterCompleting(gameObject.scene);
-            SceneManager.LoadScene(nextSceneName);
+            SceneManager.LoadScene(destination);
         }
     }
 }
