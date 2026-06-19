@@ -32,6 +32,7 @@ public class EnemyPatrol : MonoBehaviour
     private bool usingFallbackWaypoints;
     private Transform playerSpawn;
     private bool usesLevelFourFacing;
+    private Quaternion middleHoldRotation;
 
     private void Awake()
     {
@@ -42,6 +43,7 @@ public class EnemyPatrol : MonoBehaviour
 
         lookoutRotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
         ResolveWaypoints();
+        ConfigureLevelOnePatrol();
         ConfigureLevelFourPatrol();
         ResolvePlayerSpawn();
         currentWaypointIndex = usingFallbackWaypoints && waypoints.Length > 1 ? 1 : 0;
@@ -93,6 +95,10 @@ public class EnemyPatrol : MonoBehaviour
         if (toTarget.magnitude <= reachDistance)
         {
             rb.MovePosition(targetPosition);
+            if (IsLevelOneMiddleLookout())
+            {
+                middleHoldRotation = rb.rotation * Quaternion.Euler(0f, 90f, 0f);
+            }
             holdingAtWaypoint = true;
             holdTimer = 0f;
             FaceHoldDirection();
@@ -114,6 +120,12 @@ public class EnemyPatrol : MonoBehaviour
     {
         if (TryFaceLevelFourWaypoint())
         {
+            return;
+        }
+
+        if (IsLevelOneMiddleLookout())
+        {
+            rb.MoveRotation(middleHoldRotation);
             return;
         }
 
@@ -159,6 +171,12 @@ public class EnemyPatrol : MonoBehaviour
         Transform currentWaypoint = waypoints[currentWaypointIndex];
         return currentWaypoint != null &&
             string.Equals(currentWaypoint.name, middleWaypointName, System.StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsLevelOneMiddleLookout()
+    {
+        return string.Equals(gameObject.scene.name, "level 1", System.StringComparison.OrdinalIgnoreCase) &&
+            IsMiddleLookout();
     }
 
     private void ResolvePlayerSpawn()
@@ -256,6 +274,27 @@ public class EnemyPatrol : MonoBehaviour
         return waypoint.transform;
     }
 
+    private void ConfigureLevelOnePatrol()
+    {
+        if (!string.Equals(gameObject.scene.name, "level 1", System.StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        Transform start = FindTransformInScene("w2");
+        Transform middle = FindTransformInScene("w2_mid");
+        Transform end = FindTransformInScene("w2 (1)");
+        if (start == null || middle == null || end == null)
+        {
+            return;
+        }
+
+        waypoints = new[] { start, middle, end };
+        Vector3 startPosition = start.position;
+        startPosition.y = rb.position.y;
+        rb.position = startPosition;
+    }
+
     private void ConfigureLevelFourPatrol()
     {
         if (!string.Equals(gameObject.scene.name, "level 4", System.StringComparison.OrdinalIgnoreCase))
@@ -272,21 +311,20 @@ public class EnemyPatrol : MonoBehaviour
             return;
         }
 
+        Transform first = FindTransformInScene("w21");
         Transform middle = FindTransformInScene("w21 (1)");
-        List<Transform> route = new List<Transform>(waypoints);
-        if (middle == null && route.Count >= 2)
+        Transform last = FindTransformInScene("w22");
+        if (middle == null && first != null && last != null)
         {
-            Vector3 midpoint = Vector3.Lerp(route[0].position, route[1].position, 0.5f);
+            Vector3 midpoint = Vector3.Lerp(first.position, last.position, 0.5f);
             List<Transform> generated = new List<Transform>();
             middle = CreateRuntimeWaypoint("w21 (1)", midpoint, generated);
         }
 
-        if (middle != null && !route.Contains(middle))
+        if (first != null && middle != null && last != null)
         {
-            route.Insert(Mathf.Min(1, route.Count), middle);
+            waypoints = new[] { last, first, middle };
         }
-
-        waypoints = route.ToArray();
     }
 
     private bool TryFaceLevelFourWaypoint()

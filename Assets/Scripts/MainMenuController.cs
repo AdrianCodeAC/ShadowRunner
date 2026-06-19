@@ -3,6 +3,8 @@ using UnityEngine.SceneManagement;
 
 public class MainMenuController : MonoBehaviour
 {
+    private static bool showVictoryOnNextLoad;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InstallWhenMenuStartsDirectly()
     {
@@ -30,7 +32,8 @@ public class MainMenuController : MonoBehaviour
     {
         Main,
         LevelSelect,
-        Settings
+        Settings,
+        Victory
     }
 
     private const string VolumeKey = "MasterVolume";
@@ -45,6 +48,12 @@ public class MainMenuController : MonoBehaviour
 
     private void Awake()
     {
+        if (showVictoryOnNextLoad)
+        {
+            currentPage = MenuPage.Victory;
+            showVictoryOnNextLoad = false;
+        }
+
         volume = PlayerPrefs.GetFloat(VolumeKey, 1f);
         AudioListener.volume = volume;
         Cursor.lockState = CursorLockMode.None;
@@ -69,9 +78,11 @@ public class MainMenuController : MonoBehaviour
         GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), backgroundTexture, ScaleMode.StretchToFill);
         float panelWidth = Mathf.Min(460f, Screen.width - 40f);
         Rect panel = new Rect((Screen.width - panelWidth) * 0.5f, Mathf.Max(28f, Screen.height * 0.08f), panelWidth, Screen.height * 0.84f);
-        GUI.Box(panel, GUIContent.none);
 
-        GUI.Label(new Rect(panel.x, panel.y + 28f, panel.width, 72f), "SHADOW RUNNER", titleStyle);
+        if (currentPage != MenuPage.Victory)
+        {
+            GUI.Label(new Rect(panel.x, panel.y + 28f, panel.width, 72f), "SHADOW RUNNER", titleStyle);
+        }
         switch (currentPage)
         {
             case MenuPage.LevelSelect:
@@ -80,9 +91,29 @@ public class MainMenuController : MonoBehaviour
             case MenuPage.Settings:
                 DrawSettings(panel);
                 break;
+            case MenuPage.Victory:
+                DrawVictory(panel);
+                break;
             default:
                 DrawMainMenu(panel);
                 break;
+        }
+    }
+
+    public static void ShowVictoryOnNextLoad()
+    {
+        showVictoryOnNextLoad = true;
+    }
+
+    private void DrawVictory(Rect panel)
+    {
+        GUI.Label(new Rect(panel.x, panel.y + 55f, panel.width, 70f), "CONGRATULATIONS!", headingStyle);
+        GUI.Label(new Rect(panel.x, panel.y + 135f, panel.width, 72f), "YOU WON", titleStyle);
+
+        float y = panel.y + 245f;
+        if (DrawButton(panel, ref y, "MAIN MENU", true))
+        {
+            currentPage = MenuPage.Main;
         }
     }
 

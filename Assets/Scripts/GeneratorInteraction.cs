@@ -77,6 +77,14 @@ public class GeneratorInteraction : MonoBehaviour
         interactionCollider = GetComponent<Collider>();
         if (interactionCollider == null)
         {
+            Transform generatorBlock = FindChildRecursive(transform, "generator");
+            if (generatorBlock != null)
+            {
+                interactionCollider = generatorBlock.GetComponent<Collider>();
+            }
+        }
+        if (interactionCollider == null)
+        {
             interactionCollider = GetComponentInChildren<Collider>(true);
         }
         interactionPoint = interactionCollider != null ? interactionCollider.transform : transform;
@@ -145,8 +153,13 @@ public class GeneratorInteraction : MonoBehaviour
         }
 
         Vector3 end = interactionCollider != null
-            ? interactionCollider.ClosestPoint(start)
+            ? interactionCollider.bounds.center
             : interactionPoint.position;
+        return HasClearPath(start, end, player);
+    }
+
+    private bool HasClearPath(Vector3 start, Vector3 end, Transform player)
+    {
         Vector3 direction = end - start;
         float distance = direction.magnitude;
         if (distance <= 0.01f)
@@ -164,7 +177,8 @@ public class GeneratorInteraction : MonoBehaviour
         for (int i = 0; i < hits.Length; i++)
         {
             Transform hit = hits[i].collider.transform;
-            if (hit == player || hit.IsChildOf(player) || hit == transform || hit.IsChildOf(transform))
+            if (hit == player || hit.IsChildOf(player) || player.IsChildOf(hit) ||
+                hit == transform || hit.IsChildOf(transform) || transform.IsChildOf(hit))
             {
                 continue;
             }

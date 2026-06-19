@@ -2427,8 +2427,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyPatrol
   waypoints:
   - {fileID: 2131432189}
-  - {fileID: 623396373}
   - {fileID: 998762963}
+  - {fileID: 623396373}
   autoWaypointRootName: waypoints
   reachDistance: 0.15
   fallbackPatrolDistance: 8

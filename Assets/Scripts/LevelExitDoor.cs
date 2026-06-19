@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 public class LevelExitDoor : MonoBehaviour
 {
     [SerializeField] private string nextSceneName = "level 2";
+    private bool isFinalLevel;
 
     private void Awake()
     {
@@ -14,13 +15,28 @@ public class LevelExitDoor : MonoBehaviour
 
     public void ConfigureNextScene(string sceneName)
     {
+        isFinalLevel = false;
         nextSceneName = sceneName;
+    }
+
+    public void ConfigureFinalLevel()
+    {
+        isFinalLevel = true;
+        nextSceneName = string.Empty;
     }
 
     private void OnTriggerEnter(Collider other)
     {
         if (other.GetComponentInParent<Health>() == null)
         {
+            return;
+        }
+
+        if (isFinalLevel)
+        {
+            LevelProgress.UnlockAfterCompleting(gameObject.scene);
+            MainMenuController.ShowVictoryOnNextLoad();
+            SceneManager.LoadScene("menu");
             return;
         }
 

@@ -55,6 +55,8 @@ public class SceneGameplayBootstrap : MonoBehaviour
             return;
         }
 
+        ApplyDarkerEnvironment(scene);
+
         GameObject player = FindInSceneByTag(scene, "Player");
         if (player == null)
         {
@@ -68,6 +70,11 @@ public class SceneGameplayBootstrap : MonoBehaviour
 
         EnsureGeneratorSetup(scene);
 
+        if (string.Equals(scene.name, "level 5", System.StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureLevelFiveEnemiesSpin(scene);
+        }
+
         GameObject exitDoor = FindInSceneByName(scene, "ending");
         if (exitDoor == null && scene.name == "level 1")
         {
@@ -75,7 +82,7 @@ public class SceneGameplayBootstrap : MonoBehaviour
         }
 
         string nextSceneName = GetNextSceneName(scene);
-        if (exitDoor != null && !string.IsNullOrEmpty(nextSceneName))
+        if (exitDoor != null)
         {
             LevelExitDoor levelExit = exitDoor.GetComponent<LevelExitDoor>();
             if (levelExit == null)
@@ -83,7 +90,14 @@ public class SceneGameplayBootstrap : MonoBehaviour
                 levelExit = exitDoor.AddComponent<LevelExitDoor>();
             }
 
-            levelExit.ConfigureNextScene(nextSceneName);
+            if (!string.IsNullOrEmpty(nextSceneName))
+            {
+                levelExit.ConfigureNextScene(nextSceneName);
+            }
+            else if (string.Equals(scene.name, "level 5", System.StringComparison.OrdinalIgnoreCase))
+            {
+                levelExit.ConfigureFinalLevel();
+            }
         }
     }
 
@@ -101,6 +115,26 @@ public class SceneGameplayBootstrap : MonoBehaviour
         GameObject menuController = new GameObject("Main Menu Controller");
         SceneManager.MoveGameObjectToScene(menuController, scene);
         menuController.AddComponent<MainMenuController>();
+    }
+
+    private static void ApplyDarkerEnvironment(Scene scene)
+    {
+        RenderSettings.ambientIntensity = 0.25f;
+        RenderSettings.reflectionIntensity = 0.2f;
+
+        Light[] lights = FindObjectsOfType<Light>(true);
+        for (int i = 0; i < lights.Length; i++)
+        {
+            Light lightSource = lights[i];
+            if (lightSource.gameObject.scene != scene || lightSource.type != LightType.Directional ||
+                lightSource.GetComponentInParent<EnemyPatrol>() != null ||
+                lightSource.GetComponentInParent<GuardVisionDamage>() != null)
+            {
+                continue;
+            }
+
+            lightSource.intensity = Mathf.Min(lightSource.intensity, 0.45f);
+        }
     }
 
     private static string GetNextSceneName(Scene scene)
@@ -143,6 +177,38 @@ public class SceneGameplayBootstrap : MonoBehaviour
         for (int i = 0; i < roots.Length; i++)
         {
             EnsureGeneratorsInHierarchy(roots[i].transform, false);
+        }
+    }
+
+    private static void EnsureLevelFiveEnemiesSpin(Scene scene)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            EnsureSpinnersInHierarchy(roots[i].transform, false);
+        }
+    }
+
+    private static void EnsureSpinnersInHierarchy(Transform current, bool enemyAncestor)
+    {
+        bool isEnemy = current.name.ToLowerInvariant().Contains("enemy") ||
+            current.GetComponent<EnemyPatrol>() != null ||
+            current.GetComponent<GuardVisionDamage>() != null;
+        if (isEnemy && !enemyAncestor)
+        {
+            EnemyPatrol patrol = current.GetComponent<EnemyPatrol>();
+            if (patrol != null)
+            {
+                patrol.enabled = false;
+            }
+
+            EnsureComponent<EnemySpinInPlace>(current.gameObject);
+        }
+
+        bool hasEnemyAncestor = enemyAncestor || isEnemy;
+        for (int i = 0; i < current.childCount; i++)
+        {
+            EnsureSpinnersInHierarchy(current.GetChild(i), hasEnemyAncestor);
         }
     }
 
