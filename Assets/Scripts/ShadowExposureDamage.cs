@@ -82,14 +82,14 @@ public class ShadowExposureDamage : MonoBehaviour
         float elapsed = checkTimer;
         checkTimer = 0f;
 
-        bool isLit = IsAnyFootLit();
+        bool isLit = IsAnyFootLit(out float exposureDamagePerSecond);
         IsInShadow = !isLit;
 
         if (isLit)
         {
             darkTimer = 0f;
             regenBuffer = 0f;
-            damageBuffer += damagePerSecond * lightDamageMultiplier * elapsed;
+            damageBuffer += exposureDamagePerSecond * elapsed;
 
             int damage = Mathf.FloorToInt(damageBuffer);
             if (damage > 0)
@@ -118,8 +118,10 @@ public class ShadowExposureDamage : MonoBehaviour
         }
     }
 
-    private bool IsAnyFootLit()
+    private bool IsAnyFootLit(out float exposureDamagePerSecond)
     {
+        exposureDamagePerSecond = 0f;
+        bool isLit = false;
         for (int sampleIndex = 0; sampleIndex < footSamples.Length; sampleIndex++)
         {
             Vector3 samplePoint = transform.TransformPoint(footSamples[sampleIndex]);
@@ -128,12 +130,17 @@ public class ShadowExposureDamage : MonoBehaviour
             {
                 if (IsPointLitByLight(samplePoint, lightSources[lightIndex]))
                 {
-                    return true;
+                    isLit = true;
+                    ChallengeHunterAI hunter = lightSources[lightIndex].GetComponentInParent<ChallengeHunterAI>();
+                    float sourceDamage = hunter != null
+                        ? hunter.FlashlightDamagePerSecond
+                        : damagePerSecond * lightDamageMultiplier;
+                    exposureDamagePerSecond = Mathf.Max(exposureDamagePerSecond, sourceDamage);
                 }
             }
         }
 
-        return false;
+        return isLit;
     }
 
     private bool IsPointLitByLight(Vector3 point, Light lightSource)

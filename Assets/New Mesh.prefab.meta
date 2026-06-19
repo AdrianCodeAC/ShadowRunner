@@ -1,6 +1,8 @@
 fileFormatVersion: 2
-guid: 9e651d85bf58f6b4cb2995a0263f3030
-TextScriptImporter:
+guid: 426e3f3e680b005478bd02211a2430a4
+labels:
+- UnityAI
+PrefabImporter:
   externalObjects: {}
   userData: 
   assetBundleName: 

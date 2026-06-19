@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
+using Unity.AI.Navigation;
+using UnityEngine.AI;
 
 public class SceneGameplayBootstrap : MonoBehaviour
 {
@@ -54,7 +56,7 @@ public class SceneGameplayBootstrap : MonoBehaviour
             return;
         }
 
-        ApplyDarkerEnvironment(scene);
+        ApplyEnvironmentLighting(scene);
 
         GameObject player = FindInSceneByTag(scene, "Player");
         if (player == null)
@@ -97,7 +99,114 @@ public class SceneGameplayBootstrap : MonoBehaviour
             {
                 levelExit.ConfigureFinalLevel();
             }
+            else if (string.Equals(scene.name, "challenge1", System.StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(scene.name, "challenge2", System.StringComparison.OrdinalIgnoreCase))
+            {
+                levelExit.ConfigureNextScene("menu");
+            }
         }
+
+        if (string.Equals(scene.name, "challenge1", System.StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureChallengeOneSetup(scene, exitDoor);
+            EnsureChallengeOneHunter(scene, player);
+        }
+    }
+
+    private static void EnsureChallengeOneHunter(Scene scene, GameObject player)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        EnsureComponent<ChallengeDeathReset>(player);
+        GameObject hunterObject = FindChallengeHunter(scene);
+        if (hunterObject == null)
+        {
+            return;
+        }
+
+        ChallengeHunterAI hunter = EnsureComponent<ChallengeHunterAI>(hunterObject);
+        hunter.Configure(player.transform);
+
+        GameObject navigationObject = FindInSceneByName(scene, "Challenge 1 Runtime NavMesh");
+        if (navigationObject == null)
+        {
+            navigationObject = new GameObject("Challenge 1 Runtime NavMesh");
+            SceneManager.MoveGameObjectToScene(navigationObject, scene);
+        }
+
+        NavMeshSurface surface = EnsureComponent<NavMeshSurface>(navigationObject);
+        if (surface.navMeshData == null)
+        {
+            surface.collectObjects = CollectObjects.All;
+            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            bool playerWasActive = player.activeSelf;
+            player.SetActive(false);
+            surface.BuildNavMesh();
+            player.SetActive(playerWasActive);
+        }
+
+        hunter.StartNavigation();
+
+        ShadowExposureDamage exposure = player.GetComponent<ShadowExposureDamage>();
+        if (exposure != null)
+        {
+            exposure.RefreshLightSources();
+        }
+    }
+
+    private static GameObject FindChallengeHunter(Scene scene)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            GameObject match = FindChallengeHunterInHierarchy(roots[i].transform);
+            if (match != null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static GameObject FindChallengeHunterInHierarchy(Transform current)
+    {
+        string loweredName = current.name.ToLowerInvariant();
+        bool candidateName = loweredName.Contains("enemy") || loweredName.Contains("hunter") ||
+            string.Equals(loweredName, "capsule", System.StringComparison.OrdinalIgnoreCase);
+        bool excluded = current.CompareTag("Player") || current.GetComponent<PlayerMovement>() != null ||
+            current.GetComponentInParent<GeneratorInteraction>() != null;
+        if (candidateName && !excluded && current.GetComponentInChildren<Renderer>(true) != null)
+        {
+            return current.gameObject;
+        }
+
+        for (int i = 0; i < current.childCount; i++)
+        {
+            GameObject match = FindChallengeHunterInHierarchy(current.GetChild(i));
+            if (match != null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static void EnsureChallengeOneSetup(Scene scene, GameObject exitDoor)
+    {
+        GameObject controllerObject = FindInSceneByName(scene, "Challenge 1 Generator Objective");
+        if (controllerObject == null)
+        {
+            controllerObject = new GameObject("Challenge 1 Generator Objective");
+            SceneManager.MoveGameObjectToScene(controllerObject, scene);
+        }
+
+        ChallengeGeneratorObjective objective = EnsureComponent<ChallengeGeneratorObjective>(controllerObject);
+        objective.Initialize(exitDoor);
     }
 
     private static void EnsureMainMenu(Scene scene)
@@ -116,10 +225,11 @@ public class SceneGameplayBootstrap : MonoBehaviour
         menuController.AddComponent<MainMenuController>();
     }
 
-    private static void ApplyDarkerEnvironment(Scene scene)
+    private static void ApplyEnvironmentLighting(Scene scene)
     {
-        RenderSettings.ambientIntensity = 0.25f;
-        RenderSettings.reflectionIntensity = 0.2f;
+        bool isChallengeOne = string.Equals(scene.name, "challenge1", System.StringComparison.OrdinalIgnoreCase);
+        RenderSettings.ambientIntensity = isChallengeOne ? 0.45f : 0.25f;
+        RenderSettings.reflectionIntensity = isChallengeOne ? 0.35f : 0.2f;
 
         Light[] lights = FindObjectsOfType<Light>(true);
         for (int i = 0; i < lights.Length; i++)
@@ -132,7 +242,8 @@ public class SceneGameplayBootstrap : MonoBehaviour
                 continue;
             }
 
-            lightSource.intensity = Mathf.Min(lightSource.intensity, 0.45f);
+            float maximumIntensity = isChallengeOne ? 0.7f : 0.45f;
+            lightSource.intensity = Mathf.Min(lightSource.intensity, maximumIntensity);
         }
     }
 

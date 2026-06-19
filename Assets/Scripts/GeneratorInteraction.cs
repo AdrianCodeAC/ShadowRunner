@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class GeneratorInteraction : MonoBehaviour
@@ -11,8 +12,14 @@ public class GeneratorInteraction : MonoBehaviour
     [SerializeField] private float interactRadius = 3.5f;
 
     private bool isDisabled;
+    private bool controlsLight = true;
     private Transform interactionPoint;
     private Collider interactionCollider;
+
+    public event Action<GeneratorInteraction> Disabled;
+    public bool IsDisabled => isDisabled;
+    public Light ControlledLight => bulbLight;
+    public Renderer ControlledRenderer => bulbRenderer;
 
     private void Awake()
     {
@@ -60,16 +67,101 @@ public class GeneratorInteraction : MonoBehaviour
 
         isDisabled = true;
 
-        if (bulbLight != null)
+        if (controlsLight && bulbLight != null)
         {
             bulbLight.enabled = false;
         }
 
-        if (bulbRenderer != null)
+        if (controlsLight && bulbRenderer != null)
         {
             bulbRenderer.material.DisableKeyword("_EMISSION");
             bulbRenderer.material.color = new Color(0.55f, 0.45f, 0.1f, 1f);
         }
+
+        Disabled?.Invoke(this);
+    }
+
+    public void SetControlsLight(bool shouldControlLight)
+    {
+        controlsLight = shouldControlLight;
+    }
+
+    public void ConfigureControlledLight(Light lightSource, Renderer lightRenderer)
+    {
+        bulbLight = lightSource;
+        bulbRenderer = lightRenderer;
+        controlsLight = lightSource != null || lightRenderer != null;
+    }
+
+    public bool TryConfigureFromOwnHierarchy()
+    {
+        Transform searchRoot = transform;
+        Light ownedLight = FindNearestChildLight(searchRoot, transform.position);
+        Transform bulbTransform = FindNearestChildByName(searchRoot, "bulb", transform.position);
+        if (ownedLight == null && bulbTransform == null && transform.parent != null)
+        {
+            searchRoot = transform.parent;
+            ownedLight = FindNearestChildLight(searchRoot, transform.position);
+            bulbTransform = FindNearestChildByName(searchRoot, "bulb", transform.position);
+        }
+
+        Renderer ownedRenderer = bulbTransform != null
+            ? bulbTransform.GetComponent<Renderer>()
+            : null;
+
+        if (ownedLight == null && ownedRenderer == null)
+        {
+            return false;
+        }
+
+        ConfigureControlledLight(ownedLight, ownedRenderer);
+        return true;
+    }
+
+    private Light FindNearestChildLight(Transform root, Vector3 origin)
+    {
+        Light closest = null;
+        float closestDistance = float.PositiveInfinity;
+        Light[] lights = root.GetComponentsInChildren<Light>(true);
+        for (int i = 0; i < lights.Length; i++)
+        {
+            if (lights[i].transform == transform)
+            {
+                continue;
+            }
+
+            float distance = (lights[i].transform.position - origin).sqrMagnitude;
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closest = lights[i];
+            }
+        }
+
+        return closest;
+    }
+
+    private static Transform FindNearestChildByName(Transform root, string nameContains, Vector3 origin)
+    {
+        Transform closest = null;
+        float closestDistance = float.PositiveInfinity;
+        Transform[] children = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < children.Length; i++)
+        {
+            if (!children[i].name.ToLowerInvariant().Contains(nameContains.ToLowerInvariant()))
+            {
+                continue;
+            }
+
+            float distance = (children[i].position - origin).sqrMagnitude;
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closest = children[i];
+            }
+        }
+
+        return closest;
     }
 
     private void ResolveBulb()

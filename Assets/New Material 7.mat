@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: New Material 5
+  m_Name: New Material 7
   m_Shader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -116,8 +116,8 @@ Material:
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.07338022, g: 0.2877792, b: 0.9150943, a: 1}
-    - _Color: {r: 0.07338018, g: 0.28777918, b: 0.9150943, a: 1}
+    - _BaseColor: {r: 0.36450619, g: 0.9137255, b: 0.07450979, a: 1}
+    - _Color: {r: 0.36450616, g: 0.9137255, b: 0.07450978, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []

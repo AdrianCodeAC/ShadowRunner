@@ -32,6 +32,7 @@ public class MainMenuController : MonoBehaviour
     {
         Main,
         LevelSelect,
+        ChallengeRuns,
         Settings,
         Victory
     }
@@ -91,6 +92,9 @@ public class MainMenuController : MonoBehaviour
             case MenuPage.Settings:
                 DrawSettings(panel);
                 break;
+            case MenuPage.ChallengeRuns:
+                DrawChallengeRuns(panel);
+                break;
             case MenuPage.Victory:
                 DrawVictory(panel);
                 break;
@@ -121,6 +125,7 @@ public class MainMenuController : MonoBehaviour
     {
         float y = panel.y + 150f;
         if (DrawButton(panel, ref y, "SELECT LEVEL", true)) currentPage = MenuPage.LevelSelect;
+        if (DrawButton(panel, ref y, "CHALLENGE RUNS", true)) currentPage = MenuPage.ChallengeRuns;
         if (DrawButton(panel, ref y, "SETTINGS", true)) currentPage = MenuPage.Settings;
         if (DrawButton(panel, ref y, "QUIT", true)) QuitGame();
     }
@@ -145,6 +150,28 @@ public class MainMenuController : MonoBehaviour
 
         y += 8f;
         if (DrawButton(panel, ref y, "BACK", true)) currentPage = MenuPage.Main;
+    }
+
+    private void DrawChallengeRuns(Rect panel)
+    {
+        GUI.Label(new Rect(panel.x, panel.y + 108f, panel.width, 40f), "CHALLENGE RUNS", headingStyle);
+        float y = panel.y + 175f;
+
+        DrawChallengeButton(panel, ref y, "CHALLENGE RUN 1", "challenge1");
+        DrawChallengeButton(panel, ref y, "CHALLENGE RUN 2", "challenge2");
+
+        y += 12f;
+        if (DrawButton(panel, ref y, "BACK", true)) currentPage = MenuPage.Main;
+    }
+
+    private void DrawChallengeButton(Rect panel, ref float y, string label, string sceneName)
+    {
+        bool available = Application.CanStreamedLevelBeLoaded(sceneName);
+        string buttonLabel = available ? label : $"{label}  -  COMING SOON";
+        if (DrawButton(panel, ref y, buttonLabel, available))
+        {
+            SceneManager.LoadScene(sceneName);
+        }
     }
 
     private void DrawSettings(Rect panel)

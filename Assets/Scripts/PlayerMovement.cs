@@ -8,9 +8,11 @@ public class PlayerMovement : MonoBehaviour
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float sprintMultiplier = 1.7f;
 
     private Rigidbody rb;
     private Vector2 moveInput;
+    private bool sprintHeld;
 
     private void Awake()
     {
@@ -21,13 +23,15 @@ public class PlayerMovement : MonoBehaviour
     private void Update()
     {
         moveInput = ReadMoveInput();
+        sprintHeld = ReadSprintInput();
     }
 
     private void FixedUpdate()
     {
         Vector3 moveDirection = (transform.forward * moveInput.y + transform.right * moveInput.x).normalized;
 
-        Vector3 velocity = moveDirection * moveSpeed;
+        float currentSpeed = sprintHeld ? moveSpeed * sprintMultiplier : moveSpeed;
+        Vector3 velocity = moveDirection * currentSpeed;
         velocity.y = rb.linearVelocity.y;
         rb.linearVelocity = velocity;
     }
@@ -48,6 +52,16 @@ public class PlayerMovement : MonoBehaviour
         return input.normalized;
 #else
         return new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")).normalized;
+#endif
+    }
+
+    private bool ReadSprintInput()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null &&
+            (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed);
+#else
+        return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 #endif
     }
 }

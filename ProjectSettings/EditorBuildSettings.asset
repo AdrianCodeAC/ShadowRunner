@@ -23,6 +23,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/level 5.unity
     guid: c7edc061508d75f46be69d04a62fdb15
+  - enabled: 1
+    path: Assets/Scenes/challenge1.unity
+    guid: aefe6976ed9d7fe4d9502e203aa9ba5d
+  - enabled: 1
+    path: Assets/Scenes/challenge2.unity
+    guid: f9375f94303d7ca4981ef84a6dda077a
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
