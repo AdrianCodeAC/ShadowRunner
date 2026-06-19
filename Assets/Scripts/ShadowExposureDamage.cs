@@ -27,16 +27,36 @@ public class ShadowExposureDamage : MonoBehaviour
     private float darkTimer;
     private Vector3[] footSamples;
 
+    public bool IsInShadow { get; private set; } = true;
+
     private void Awake()
     {
         health = GetComponent<Health>();
         capsuleCollider = GetComponent<CapsuleCollider>();
         BuildFootSamples();
 
-        if (lightSources == null || lightSources.Length == 0)
+        if (!HasValidLightSource())
         {
             lightSources = FindObjectsOfType<Light>();
         }
+    }
+
+    private bool HasValidLightSource()
+    {
+        if (lightSources == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < lightSources.Length; i++)
+        {
+            if (lightSources[i] != null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void Update()
@@ -47,15 +67,17 @@ public class ShadowExposureDamage : MonoBehaviour
             return;
         }
 
+        float elapsed = checkTimer;
         checkTimer = 0f;
 
         bool isLit = IsAnyFootLit();
+        IsInShadow = !isLit;
 
         if (isLit)
         {
             darkTimer = 0f;
             regenBuffer = 0f;
-            damageBuffer += damagePerSecond * lightDamageMultiplier * shadowCheckInterval;
+            damageBuffer += damagePerSecond * lightDamageMultiplier * elapsed;
 
             int damage = Mathf.FloorToInt(damageBuffer);
             if (damage > 0)
@@ -67,14 +89,14 @@ public class ShadowExposureDamage : MonoBehaviour
         else
         {
             damageBuffer = 0f;
-            darkTimer += shadowCheckInterval;
+            darkTimer += elapsed;
 
             if (darkTimer < darkRegenDelaySeconds)
             {
                 return;
             }
 
-            regenBuffer += damagePerSecond * lightDamageMultiplier * shadowCheckInterval;
+            regenBuffer += damagePerSecond * lightDamageMultiplier * elapsed;
             int heal = Mathf.FloorToInt(regenBuffer);
             if (heal > 0)
             {
@@ -114,7 +136,7 @@ public class ShadowExposureDamage : MonoBehaviour
             case LightType.Directional:
             {
                 Vector3 toLight = -lightSource.transform.forward.normalized;
-                return !Physics.Raycast(point, toLight, maxRayDistance, occluderMask, QueryTriggerInteraction.Ignore);
+                return HasClearPath(point, toLight, maxRayDistance, lightSource);
             }
 
             case LightType.Point:
@@ -127,7 +149,7 @@ public class ShadowExposureDamage : MonoBehaviour
                     return false;
                 }
 
-                return !Physics.Raycast(point, toLight.normalized, distance, occluderMask, QueryTriggerInteraction.Ignore);
+                return HasClearPath(point, toLight.normalized, distance, lightSource);
             }
 
             case LightType.Spot:
@@ -148,12 +170,36 @@ public class ShadowExposureDamage : MonoBehaviour
                     return false;
                 }
 
-                return !Physics.Raycast(lightSource.transform.position, direction, distance, occluderMask, QueryTriggerInteraction.Ignore);
+                return HasClearPath(lightSource.transform.position, direction, distance, lightSource);
             }
 
             default:
                 return false;
         }
+    }
+
+    private bool HasClearPath(Vector3 origin, Vector3 direction, float distance, Light lightSource)
+    {
+        RaycastHit[] hits = Physics.RaycastAll(origin, direction, distance, occluderMask, QueryTriggerInteraction.Ignore);
+        Transform lightOwner = lightSource.GetComponentInParent<GuardVisionDamage>()?.transform;
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Transform hit = hits[i].collider.transform;
+            if (hit.IsChildOf(transform) || transform.IsChildOf(hit))
+            {
+                continue;
+            }
+
+            if (lightOwner != null && (hit.IsChildOf(lightOwner) || hit == lightOwner))
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     private Vector3 GetFootOrigin()

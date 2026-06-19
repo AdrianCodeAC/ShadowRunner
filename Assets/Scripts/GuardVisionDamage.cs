@@ -15,6 +15,7 @@ public class GuardVisionDamage : MonoBehaviour
     [SerializeField] private LayerMask occluderMask = ~0;
 
     private Health playerHealth;
+    private ShadowExposureDamage shadowExposure;
     private float checkTimer;
     private float damageBuffer;
 
@@ -69,12 +70,24 @@ public class GuardVisionDamage : MonoBehaviour
             {
                 playerHealth = playerTarget.GetComponentInChildren<Health>();
             }
+
+            shadowExposure = playerTarget.GetComponentInParent<ShadowExposureDamage>();
+            if (shadowExposure == null)
+            {
+                shadowExposure = playerTarget.GetComponentInChildren<ShadowExposureDamage>();
+            }
         }
     }
 
     private void Update()
     {
         if (playerTarget == null || playerHealth == null || flashlight == null)
+        {
+            return;
+        }
+
+        // ShadowExposureDamage owns light damage when present, avoiding duplicate DPS.
+        if (shadowExposure != null && shadowExposure.enabled)
         {
             return;
         }

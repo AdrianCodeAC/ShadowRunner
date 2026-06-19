@@ -20,6 +20,11 @@ public class SceneGameplayBootstrap : MonoBehaviour
             {
                 player.AddComponent<PlayerInteractor>();
             }
+
+            if (player.GetComponent<ShadowStatusUI>() == null)
+            {
+                player.AddComponent<ShadowStatusUI>();
+            }
         }
 
         if (activeScene.name == "level 2")
@@ -33,7 +38,12 @@ public class SceneGameplayBootstrap : MonoBehaviour
 
         if (activeScene.name == "level 1")
         {
-            GameObject exitDoor = FindInSceneByName(activeScene, "Cube (4)");
+            GameObject exitDoor = FindInSceneByName(activeScene, "ending");
+            if (exitDoor == null)
+            {
+                exitDoor = FindInSceneByName(activeScene, "Cube (4)");
+            }
+
             if (exitDoor != null && exitDoor.GetComponent<LevelExitDoor>() == null)
             {
                 exitDoor.AddComponent<LevelExitDoor>();
@@ -89,7 +99,7 @@ public class SceneGameplayBootstrap : MonoBehaviour
 
     private static GameObject FindInHierarchy(Transform root, string objectName)
     {
-        if (root.name == objectName)
+        if (string.Equals(root.name, objectName, System.StringComparison.OrdinalIgnoreCase))
         {
             return root.gameObject;
         }
