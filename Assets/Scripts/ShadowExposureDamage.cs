@@ -9,6 +9,8 @@ public class ShadowExposureDamage : MonoBehaviour
 
     [Header("Damage")]
     [SerializeField] private float damagePerSecond = 10f;
+    [SerializeField] private float lightDamageMultiplier = 2f;
+    [SerializeField] private float darkRegenDelaySeconds = 3f;
     [SerializeField] private float shadowCheckInterval = 0.05f;
 
     [Header("Detection")]
@@ -21,6 +23,8 @@ public class ShadowExposureDamage : MonoBehaviour
     private CapsuleCollider capsuleCollider;
     private float checkTimer;
     private float damageBuffer;
+    private float regenBuffer;
+    private float darkTimer;
     private Vector3[] footSamples;
 
     private void Awake()
@@ -45,9 +49,13 @@ public class ShadowExposureDamage : MonoBehaviour
 
         checkTimer = 0f;
 
-        if (IsAnyFootLit())
+        bool isLit = IsAnyFootLit();
+
+        if (isLit)
         {
-            damageBuffer += damagePerSecond * shadowCheckInterval;
+            darkTimer = 0f;
+            regenBuffer = 0f;
+            damageBuffer += damagePerSecond * lightDamageMultiplier * shadowCheckInterval;
 
             int damage = Mathf.FloorToInt(damageBuffer);
             if (damage > 0)
@@ -59,6 +67,20 @@ public class ShadowExposureDamage : MonoBehaviour
         else
         {
             damageBuffer = 0f;
+            darkTimer += shadowCheckInterval;
+
+            if (darkTimer < darkRegenDelaySeconds)
+            {
+                return;
+            }
+
+            regenBuffer += damagePerSecond * lightDamageMultiplier * shadowCheckInterval;
+            int heal = Mathf.FloorToInt(regenBuffer);
+            if (heal > 0)
+            {
+                regenBuffer -= heal;
+                health.Heal(heal);
+            }
         }
     }
 

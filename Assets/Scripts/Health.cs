@@ -11,11 +11,15 @@ public class Health : MonoBehaviour
     public event Action<int, int> OnHealthChanged;
     public event Action OnDied;
 
+    private bool deathNotified;
+
     private void Awake()
     {
         CurrentHealth = maxHealth;
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
     }
+
+    public bool IsDead => CurrentHealth <= 0;
 
     public void TakeDamage(int amount)
     {
@@ -27,10 +31,18 @@ public class Health : MonoBehaviour
         CurrentHealth = Mathf.Max(CurrentHealth - amount, 0);
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
 
-        if (CurrentHealth <= 0)
+        if (CurrentHealth <= 0 && !deathNotified)
         {
+            deathNotified = true;
             OnDied?.Invoke();
         }
+    }
+
+    public void HealToFull()
+    {
+        CurrentHealth = maxHealth;
+        deathNotified = false;
+        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
     }
 
     public void Heal(int amount)
@@ -42,5 +54,19 @@ public class Health : MonoBehaviour
 
         CurrentHealth = Mathf.Min(CurrentHealth + amount, MaxHealth);
         OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
+    }
+
+    public void SetHealth(int amount)
+    {
+        bool wasDead = deathNotified;
+        CurrentHealth = Mathf.Clamp(amount, 0, maxHealth);
+        deathNotified = CurrentHealth <= 0;
+        OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
+
+        if (CurrentHealth <= 0 && !wasDead)
+        {
+            deathNotified = true;
+            OnDied?.Invoke();
+        }
     }
 }
