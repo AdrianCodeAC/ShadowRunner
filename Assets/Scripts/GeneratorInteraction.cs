@@ -7,10 +7,12 @@ public class GeneratorInteraction : MonoBehaviour
     [SerializeField] private Renderer bulbRenderer;
 
     [Header("Prompt")]
-    [SerializeField] private string promptText = "Press E to disable";
-    [SerializeField] private float interactRadius = 2.5f;
+    [SerializeField] private string promptText = "Press E to interact";
+    [SerializeField] private float interactRadius = 3.5f;
 
     private bool isDisabled;
+    private Transform interactionPoint;
+    private Collider interactionCollider;
 
     private void Awake()
     {
@@ -24,7 +26,24 @@ public class GeneratorInteraction : MonoBehaviour
             return false;
         }
 
-        return Vector3.Distance(transform.position, player.position) <= interactRadius;
+        return GetDistanceTo(player) <= interactRadius;
+    }
+
+    public float GetDistanceTo(Transform player)
+    {
+        if (player == null)
+        {
+            return float.PositiveInfinity;
+        }
+
+        if (interactionCollider != null)
+        {
+            Vector3 closestPoint = interactionCollider.ClosestPoint(player.position);
+            return Vector3.Distance(closestPoint, player.position);
+        }
+
+        Transform point = interactionPoint != null ? interactionPoint : transform;
+        return Vector3.Distance(point.position, player.position);
     }
 
     public string GetPromptText()
@@ -55,6 +74,12 @@ public class GeneratorInteraction : MonoBehaviour
 
     private void ResolveBulb()
     {
+        interactionPoint = FindChildRecursive(transform, "generator");
+        if (interactionPoint != null)
+        {
+            interactionCollider = interactionPoint.GetComponent<Collider>();
+        }
+
         GameObject bulbObject = GameObject.Find("bulb");
         if (bulbObject != null)
         {
@@ -87,16 +112,21 @@ public class GeneratorInteraction : MonoBehaviour
         {
             GameObject lightObject = bulbRenderer != null ? bulbRenderer.gameObject : gameObject;
             bulbLight = lightObject.AddComponent<Light>();
+            bulbLight.type = LightType.Point;
+            bulbLight.color = new Color(1f, 0.92f, 0.45f, 1f);
+            bulbLight.intensity = 2f;
+            bulbLight.range = 8f;
         }
-
-        bulbLight.type = LightType.Point;
-        bulbLight.color = new Color(1f, 0.92f, 0.45f, 1f);
-        bulbLight.intensity = 2f;
-        bulbLight.range = 8f;
 
         if (bulbRenderer == null)
         {
             bulbRenderer = bulbLight.GetComponent<Renderer>();
+        }
+
+        ShadowExposureDamage[] exposureComponents = FindObjectsOfType<ShadowExposureDamage>();
+        for (int i = 0; i < exposureComponents.Length; i++)
+        {
+            exposureComponents[i].RefreshLightSources();
         }
     }
 

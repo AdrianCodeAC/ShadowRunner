@@ -1443,13 +1443,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 998762962}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
   m_LocalPosition: {x: -32.14, y: 0.82, z: 1.56}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 895900121}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!1 &1010288766
 GameObject:
   m_ObjectHideFlags: 0
@@ -2430,14 +2430,11 @@ MonoBehaviour:
   - {fileID: 623396373}
   - {fileID: 998762963}
   autoWaypointRootName: waypoints
-  loop: 1
   reachDistance: 0.15
-  moveSpeed: 2
+  fallbackPatrolDistance: 8
+  moveSpeed: 7
   turnSpeed: 6
-  middleWaypointIndex: 1
-  middleHoldSeconds: 5
-  playerLookTarget: {fileID: 0}
-  autoPlayerLookTargetName: PlayerSpawn
+  holdSecondsAtWaypoint: 2
 --- !u!54 &1617363393
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -2705,7 +2702,7 @@ Transform:
   m_GameObject: {fileID: 1684920407}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3.03, y: 6.25, z: 11.02433}
+  m_LocalPosition: {x: 3.03, y: 6.25, z: 47.59}
   m_LocalScale: {x: 39.63695, y: 1.0308, z: 35.47}
   m_ConstrainProportionsScale: 0
   m_Children: []

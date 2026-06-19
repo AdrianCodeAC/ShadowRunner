@@ -5,10 +5,9 @@ using UnityEngine.InputSystem;
 
 public class PlayerInteractor : MonoBehaviour
 {
-    [SerializeField] private float searchRadius = 3f;
-    [SerializeField] private string promptText = "Press E to disable";
-
+    [SerializeField] private float searchRadius = 5f;
     private GeneratorInteraction activeGenerator;
+    private GUIStyle promptStyle;
 
     private void Update()
     {
@@ -27,9 +26,21 @@ public class PlayerInteractor : MonoBehaviour
             return;
         }
 
-        Rect box = new Rect(Screen.width * 0.5f - 140f, Screen.height - 110f, 280f, 40f);
+        if (promptStyle == null)
+        {
+            promptStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 22,
+                fontStyle = FontStyle.Bold
+            };
+            promptStyle.normal.textColor = Color.white;
+        }
+
+        GUI.depth = -100;
+        Rect box = new Rect(Screen.width * 0.5f - 180f, Screen.height - 140f, 360f, 56f);
         GUI.Box(box, string.Empty);
-        GUI.Label(new Rect(box.x + 12f, box.y + 10f, box.width - 24f, 20f), promptText);
+        GUI.Label(box, activeGenerator.GetPromptText(), promptStyle);
     }
 
     private GeneratorInteraction FindClosestGenerator()
@@ -46,7 +57,7 @@ public class PlayerInteractor : MonoBehaviour
                 continue;
             }
 
-            float distance = Vector3.Distance(transform.position, candidate.transform.position);
+            float distance = candidate.GetDistanceTo(transform);
             if (distance <= closestDistance)
             {
                 closestDistance = distance;

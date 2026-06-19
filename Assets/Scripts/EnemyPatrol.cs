@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(Rigidbody))]
 public class EnemyPatrol : MonoBehaviour
@@ -7,25 +8,30 @@ public class EnemyPatrol : MonoBehaviour
     [Header("Path")]
     [SerializeField] private Transform[] waypoints;
     [SerializeField] private string autoWaypointRootName = "waypoints";
-    [SerializeField] private bool loop = true;
     [SerializeField] private float reachDistance = 0.2f;
+    [SerializeField] private float fallbackPatrolDistance = 8f;
 
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 2f;
     [SerializeField] private float turnSpeed = 8f;
+    [SerializeField] private float holdSecondsAtWaypoint = 5f;
 
-    [Header("Middle Stop")]
+    [Header("Three Point Lookout")]
     [SerializeField] private int middleWaypointIndex = 1;
-    [SerializeField] private float middleHoldSeconds = 2f;
-    [SerializeField] private Transform playerLookTarget;
-    [SerializeField] private string autoPlayerLookTargetName = "PlayerSpawn";
+    [SerializeField] private float endpointHoldSeconds = 2f;
+    [SerializeField] private float middleHoldSeconds = 5f;
+    [SerializeField] private string playerSpawnName = "PlayerSpawn";
+    [SerializeField] private float middleLookYawOffset = 180f;
 
     private Rigidbody rb;
-    private readonly List<Transform> resolvedWaypoints = new List<Transform>();
     private int currentWaypointIndex;
     private int direction = 1;
     private float holdTimer;
-    private bool holdingAtMiddle;
+    private bool holdingAtWaypoint;
+    private Quaternion lookoutRotation;
+    private readonly List<GameObject> runtimeWaypointObjects = new List<GameObject>();
+    private bool usingFallbackWaypoints;
+    private Transform playerSpawn;
 
     private void Awake()
     {
@@ -34,9 +40,21 @@ public class EnemyPatrol : MonoBehaviour
         rb.useGravity = false;
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
+        lookoutRotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
         ResolveWaypoints();
-        ResolvePlayerLookTarget();
-        currentWaypointIndex = 0;
+        ResolvePlayerSpawn();
+        currentWaypointIndex = usingFallbackWaypoints && waypoints.Length > 1 ? 1 : 0;
+    }
+
+    private void OnDestroy()
+    {
+        for (int i = 0; i < runtimeWaypointObjects.Count; i++)
+        {
+            if (runtimeWaypointObjects[i] != null)
+            {
+                Destroy(runtimeWaypointObjects[i]);
+            }
+        }
     }
 
     private void FixedUpdate()
@@ -46,20 +64,16 @@ public class EnemyPatrol : MonoBehaviour
             return;
         }
 
-        currentWaypointIndex = Mathf.Clamp(currentWaypointIndex, 0, waypoints.Length - 1);
-
-        if (holdingAtMiddle)
+        if (holdingAtWaypoint)
         {
-            FacePlayerLookTarget();
+            FaceHoldDirection();
             holdTimer += Time.fixedDeltaTime;
-
-            if (holdTimer >= middleHoldSeconds)
+            if (holdTimer >= GetCurrentHoldSeconds())
             {
-                holdingAtMiddle = false;
+                holdingAtWaypoint = false;
                 holdTimer = 0f;
                 AdvanceWaypointIndex();
             }
-
             return;
         }
 
@@ -72,184 +86,155 @@ public class EnemyPatrol : MonoBehaviour
 
         Vector3 currentPosition = rb.position;
         Vector3 targetPosition = target.position;
-        Vector3 flatTarget = new Vector3(targetPosition.x, currentPosition.y, targetPosition.z);
-        Vector3 toTarget = flatTarget - currentPosition;
+        targetPosition.y = currentPosition.y;
+        Vector3 toTarget = targetPosition - currentPosition;
 
         if (toTarget.magnitude <= reachDistance)
         {
-            if (currentWaypointIndex == middleWaypointIndex)
-            {
-                holdingAtMiddle = true;
-                holdTimer = 0f;
-                FacePlayerLookTarget();
-                return;
-            }
-
-            AdvanceWaypointIndex();
+            rb.MovePosition(targetPosition);
+            holdingAtWaypoint = true;
+            holdTimer = 0f;
+            FaceHoldDirection();
             return;
         }
 
         Vector3 moveDirection = toTarget.normalized;
-        Vector3 nextPosition = Vector3.MoveTowards(currentPosition, flatTarget, moveSpeed * Time.fixedDeltaTime);
-        rb.MovePosition(nextPosition);
+        rb.MovePosition(Vector3.MoveTowards(currentPosition, targetPosition, moveSpeed * Time.fixedDeltaTime));
+        Quaternion movementRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+        rb.MoveRotation(Quaternion.Slerp(rb.rotation, movementRotation, turnSpeed * Time.fixedDeltaTime));
+    }
 
-        if (moveDirection.sqrMagnitude > 0.0001f)
+    private void FaceLookoutDirection()
+    {
+        rb.MoveRotation(Quaternion.Slerp(rb.rotation, lookoutRotation, turnSpeed * Time.fixedDeltaTime));
+    }
+
+    private void FaceHoldDirection()
+    {
+        if (!IsMiddleLookout() || playerSpawn == null)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
-            Quaternion nextRotation = Quaternion.Slerp(rb.rotation, targetRotation, turnSpeed * Time.fixedDeltaTime);
-            rb.MoveRotation(nextRotation);
+            FaceLookoutDirection();
+            return;
+        }
+
+        Vector3 toSpawn = playerSpawn.position - rb.position;
+        toSpawn.y = 0f;
+        if (toSpawn.sqrMagnitude < 0.001f)
+        {
+            return;
+        }
+
+        Quaternion spawnRotation = Quaternion.LookRotation(toSpawn.normalized, Vector3.up);
+        spawnRotation *= Quaternion.Euler(0f, middleLookYawOffset, 0f);
+        rb.MoveRotation(Quaternion.Slerp(rb.rotation, spawnRotation, turnSpeed * Time.fixedDeltaTime));
+    }
+
+    private float GetCurrentHoldSeconds()
+    {
+        if (waypoints.Length != 3)
+        {
+            return holdSecondsAtWaypoint;
+        }
+
+        return IsMiddleLookout() ? middleHoldSeconds : endpointHoldSeconds;
+    }
+
+    private bool IsMiddleLookout()
+    {
+        return waypoints.Length == 3 && currentWaypointIndex == middleWaypointIndex;
+    }
+
+    private void ResolvePlayerSpawn()
+    {
+        if (waypoints == null || waypoints.Length != 3)
+        {
+            return;
+        }
+
+        GameObject spawnObject = GameObject.Find(playerSpawnName);
+        if (spawnObject != null)
+        {
+            playerSpawn = spawnObject.transform;
         }
     }
 
     private void AdvanceWaypointIndex()
     {
-        if (waypoints == null || waypoints.Length == 0)
-        {
-            return;
-        }
-
-        if (waypoints.Length == 1)
+        if (waypoints.Length <= 1)
         {
             currentWaypointIndex = 0;
             return;
         }
 
         currentWaypointIndex += direction;
-
         if (currentWaypointIndex >= waypoints.Length)
         {
-            if (!loop)
-            {
-                currentWaypointIndex = waypoints.Length - 1;
-                direction = -1;
-                return;
-            }
-
             direction = -1;
             currentWaypointIndex = waypoints.Length - 2;
         }
         else if (currentWaypointIndex < 0)
         {
-            if (!loop)
-            {
-                currentWaypointIndex = 0;
-                direction = 1;
-                return;
-            }
-
             direction = 1;
             currentWaypointIndex = 1;
-        }
-
-        currentWaypointIndex = Mathf.Clamp(currentWaypointIndex, 0, waypoints.Length - 1);
-    }
-
-    private void FacePlayerLookTarget()
-    {
-        if (playerLookTarget == null)
-        {
-            return;
-        }
-
-        Vector3 flatLook = playerLookTarget.position;
-        flatLook.y = rb.position.y;
-        Vector3 toTarget = flatLook - rb.position;
-        if (toTarget.sqrMagnitude < 0.0001f)
-        {
-            return;
-        }
-
-        Quaternion targetRotation = Quaternion.LookRotation(toTarget.normalized, Vector3.up);
-        rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, turnSpeed * Time.fixedDeltaTime));
-    }
-
-    private void ResolvePlayerLookTarget()
-    {
-        if (playerLookTarget != null)
-        {
-            return;
-        }
-
-        GameObject spawn = GameObject.Find(autoPlayerLookTargetName);
-        if (spawn != null)
-        {
-            playerLookTarget = spawn.transform;
-            return;
-        }
-
-        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
-        if (playerObject != null)
-        {
-            playerLookTarget = playerObject.transform;
         }
     }
 
     private void ResolveWaypoints()
     {
-        resolvedWaypoints.Clear();
-
+        List<Transform> resolved = new List<Transform>();
         if (waypoints != null)
         {
             for (int i = 0; i < waypoints.Length; i++)
             {
                 if (waypoints[i] != null)
                 {
-                    resolvedWaypoints.Add(waypoints[i]);
+                    resolved.Add(waypoints[i]);
                 }
             }
         }
 
-        if (resolvedWaypoints.Count == 0)
+        if (resolved.Count == 0)
         {
-            GameObject waypointRoot = GameObject.Find(autoWaypointRootName);
-            if (waypointRoot != null)
+            GameObject root = GameObject.Find(autoWaypointRootName);
+            if (root != null)
             {
-                Transform rootTransform = waypointRoot.transform;
-                for (int i = 0; i < rootTransform.childCount; i++)
+                for (int i = 0; i < root.transform.childCount; i++)
                 {
-                    Transform child = rootTransform.GetChild(i);
-                    if (child != null)
-                    {
-                        resolvedWaypoints.Add(child);
-                    }
+                    resolved.Add(root.transform.GetChild(i));
                 }
             }
         }
 
-        if (resolvedWaypoints.Count > 1)
+        if (resolved.Count == 0)
         {
-            resolvedWaypoints.Sort(CompareWaypointPositions);
+            CreateFallbackWaypoints(resolved);
         }
 
-        waypoints = resolvedWaypoints.ToArray();
-
-        if (waypoints.Length >= 3)
-        {
-            middleWaypointIndex = Mathf.Clamp(middleWaypointIndex, 1, waypoints.Length - 2);
-        }
-        else
-        {
-            middleWaypointIndex = -1;
-        }
+        waypoints = resolved.ToArray();
     }
 
-    private static int CompareWaypointPositions(Transform a, Transform b)
+    private void CreateFallbackWaypoints(List<Transform> resolved)
     {
-        Vector3 pa = a.position;
-        Vector3 pb = b.position;
-
-        int xCompare = pa.x.CompareTo(pb.x);
-        if (xCompare != 0)
+        usingFallbackWaypoints = true;
+        Vector3 start = transform.position;
+        Vector3 patrolDirection = transform.forward;
+        patrolDirection.y = 0f;
+        if (patrolDirection.sqrMagnitude < 0.001f)
         {
-            return xCompare;
+            patrolDirection = Vector3.forward;
         }
+        patrolDirection.Normalize();
 
-        int zCompare = pa.z.CompareTo(pb.z);
-        if (zCompare != 0)
-        {
-            return zCompare;
-        }
+        CreateRuntimeWaypoint($"{name}_Waypoint_A", start, resolved);
+        CreateRuntimeWaypoint($"{name}_Waypoint_B", start + patrolDirection * fallbackPatrolDistance, resolved);
+    }
 
-        return pa.y.CompareTo(pb.y);
+    private void CreateRuntimeWaypoint(string waypointName, Vector3 position, List<Transform> resolved)
+    {
+        GameObject waypoint = new GameObject(waypointName);
+        waypoint.transform.SetPositionAndRotation(position, lookoutRotation);
+        SceneManager.MoveGameObjectToScene(waypoint, gameObject.scene);
+        runtimeWaypointObjects.Add(waypoint);
+        resolved.Add(waypoint.transform);
     }
 }

@@ -1,17 +1,38 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.IO;
 
 public class SceneGameplayBootstrap : MonoBehaviour
 {
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void RegisterSceneLoadCallback()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void OnAfterSceneLoad()
     {
-        Scene activeScene = SceneManager.GetActiveScene();
+        SetupScene(SceneManager.GetActiveScene());
+    }
 
-        GameObject player = FindInSceneByTag(activeScene, "Player");
+    private static void OnSceneLoaded(Scene scene, LoadSceneMode loadMode)
+    {
+        SetupScene(scene);
+    }
+
+    private static void SetupScene(Scene scene)
+    {
+        if (!scene.isLoaded)
+        {
+            return;
+        }
+
+        GameObject player = FindInSceneByTag(scene, "Player");
         if (player == null)
         {
-            player = FindInSceneByName(activeScene, "Player");
+            player = FindInSceneByName(scene, "Player");
         }
 
         if (player != null)
@@ -19,28 +40,42 @@ public class SceneGameplayBootstrap : MonoBehaviour
             EnsurePlayerSetup(player);
         }
 
-        if (activeScene.name == "level 2")
+        GameObject generator = FindInSceneByName(scene, "generator");
+        if (generator != null && generator.GetComponent<GeneratorInteraction>() == null)
         {
-            GameObject generator = FindInSceneByName(activeScene, "generator");
-            if (generator != null && generator.GetComponent<GeneratorInteraction>() == null)
-            {
-                generator.AddComponent<GeneratorInteraction>();
-            }
+            generator.AddComponent<GeneratorInteraction>();
         }
 
-        if (activeScene.name == "level 1")
+        GameObject exitDoor = FindInSceneByName(scene, "ending");
+        if (exitDoor == null && scene.name == "level 1")
         {
-            GameObject exitDoor = FindInSceneByName(activeScene, "ending");
-            if (exitDoor == null)
+            exitDoor = FindInSceneByName(scene, "Cube (4)");
+        }
+
+        string nextSceneName = GetNextSceneName(scene);
+        if (exitDoor != null && !string.IsNullOrEmpty(nextSceneName))
+        {
+            LevelExitDoor levelExit = exitDoor.GetComponent<LevelExitDoor>();
+            if (levelExit == null)
             {
-                exitDoor = FindInSceneByName(activeScene, "Cube (4)");
+                levelExit = exitDoor.AddComponent<LevelExitDoor>();
             }
 
-            if (exitDoor != null && exitDoor.GetComponent<LevelExitDoor>() == null)
-            {
-                exitDoor.AddComponent<LevelExitDoor>();
-            }
+            levelExit.ConfigureNextScene(nextSceneName);
         }
+    }
+
+    private static string GetNextSceneName(Scene scene)
+    {
+        int buildIndex = SceneUtility.GetBuildIndexByScenePath(scene.path);
+        int nextBuildIndex = buildIndex + 1;
+        if (buildIndex < 0 || nextBuildIndex >= SceneManager.sceneCountInBuildSettings)
+        {
+            return string.Empty;
+        }
+
+        string nextPath = SceneUtility.GetScenePathByBuildIndex(nextBuildIndex);
+        return Path.GetFileNameWithoutExtension(nextPath);
     }
 
     private static void EnsurePlayerSetup(GameObject player)

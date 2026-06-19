@@ -59,6 +59,11 @@ public class ShadowExposureDamage : MonoBehaviour
         return false;
     }
 
+    public void RefreshLightSources()
+    {
+        lightSources = FindObjectsOfType<Light>();
+    }
+
     private void Update()
     {
         checkTimer += Time.deltaTime;
@@ -192,6 +197,11 @@ public class ShadowExposureDamage : MonoBehaviour
             }
 
             if (lightOwner != null && (hit.IsChildOf(lightOwner) || hit == lightOwner))
+            {
+                continue;
+            }
+
+            if (hit.IsChildOf(lightSource.transform) || lightSource.transform.IsChildOf(hit))
             {
                 continue;
             }

@@ -12,6 +12,11 @@ public class LevelExitDoor : MonoBehaviour
         collider.isTrigger = true;
     }
 
+    public void ConfigureNextScene(string sceneName)
+    {
+        nextSceneName = sceneName;
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.GetComponentInParent<Health>() == null)
