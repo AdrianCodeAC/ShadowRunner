@@ -201,6 +201,10 @@ public class ShadowExposureDamage : MonoBehaviour
     {
         RaycastHit[] hits = Physics.RaycastAll(origin, direction, distance, occluderMask, QueryTriggerInteraction.Ignore);
         Transform lightOwner = lightSource.GetComponentInParent<GuardVisionDamage>()?.transform;
+        if (lightOwner == null)
+        {
+            lightOwner = lightSource.GetComponentInParent<ChallengeHunterAI>()?.transform;
+        }
 
         for (int i = 0; i < hits.Length; i++)
         {

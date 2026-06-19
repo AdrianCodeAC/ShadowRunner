@@ -124,7 +124,15 @@ public class SceneGameplayBootstrap : MonoBehaviour
         GameObject hunterObject = FindChallengeHunter(scene);
         if (hunterObject == null)
         {
-            return;
+            hunterObject = CreateChallengeHunter(scene, player.transform);
+        }
+
+        hunterObject.transform.position = GetGeneratorFourSpawn(scene, player.transform);
+        Vector3 lookDirection = player.transform.position - hunterObject.transform.position;
+        lookDirection.y = 0f;
+        if (lookDirection.sqrMagnitude > 0.01f)
+        {
+            hunterObject.transform.rotation = Quaternion.LookRotation(lookDirection);
         }
 
         ChallengeHunterAI hunter = EnsureComponent<ChallengeHunterAI>(hunterObject);
@@ -155,6 +163,74 @@ public class SceneGameplayBootstrap : MonoBehaviour
         {
             exposure.RefreshLightSources();
         }
+    }
+
+    private static GameObject CreateChallengeHunter(Scene scene, Transform player)
+    {
+        GameObject hunter = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        hunter.name = "Challenge Hunter";
+        SceneManager.MoveGameObjectToScene(hunter, scene);
+
+        Vector3 spawnPosition = player.position + new Vector3(12f, 0f, 12f);
+        GeneratorInteraction[] generators = FindObjectsOfType<GeneratorInteraction>(true);
+        float farthestDistance = -1f;
+        for (int i = 0; i < generators.Length; i++)
+        {
+            if (generators[i].gameObject.scene != scene)
+            {
+                continue;
+            }
+
+            float distance = (generators[i].transform.position - player.position).sqrMagnitude;
+            if (distance > farthestDistance)
+            {
+                farthestDistance = distance;
+                Vector3 awayFromPlayer = generators[i].transform.position - player.position;
+                awayFromPlayer.y = 0f;
+                spawnPosition = generators[i].transform.position + awayFromPlayer.normalized * 2.5f;
+                spawnPosition.y = player.position.y;
+            }
+        }
+
+        hunter.transform.position = spawnPosition;
+        hunter.transform.rotation = Quaternion.LookRotation(player.position - spawnPosition, Vector3.up);
+
+        Rigidbody body = hunter.AddComponent<Rigidbody>();
+        body.isKinematic = true;
+        body.useGravity = false;
+        return hunter;
+    }
+
+    private static Vector3 GetGeneratorFourSpawn(Scene scene, Transform player)
+    {
+        GeneratorInteraction[] generators = FindObjectsOfType<GeneratorInteraction>(true);
+        for (int i = 0; i < generators.Length; i++)
+        {
+            GeneratorInteraction generator = generators[i];
+            if (generator.gameObject.scene != scene)
+            {
+                continue;
+            }
+
+            string compactName = generator.name.ToLowerInvariant().Replace(" ", string.Empty);
+            if (!compactName.Contains("generator4"))
+            {
+                continue;
+            }
+
+            Vector3 awayFromPlayer = generator.transform.position - player.position;
+            awayFromPlayer.y = 0f;
+            if (awayFromPlayer.sqrMagnitude < 0.01f)
+            {
+                awayFromPlayer = Vector3.right;
+            }
+
+            Vector3 spawn = generator.transform.position + awayFromPlayer.normalized * 2.5f;
+            spawn.y = player.position.y;
+            return spawn;
+        }
+
+        return player.position + new Vector3(12f, 0f, 12f);
     }
 
     private static GameObject FindChallengeHunter(Scene scene)

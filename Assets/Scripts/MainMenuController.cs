@@ -44,6 +44,7 @@ public class MainMenuController : MonoBehaviour
     private GUIStyle titleStyle;
     private GUIStyle headingStyle;
     private GUIStyle buttonStyle;
+    private GUIStyle goldButtonStyle;
     private GUIStyle lockedButtonStyle;
     private GUIStyle labelStyle;
 
@@ -124,8 +125,8 @@ public class MainMenuController : MonoBehaviour
     private void DrawMainMenu(Rect panel)
     {
         float y = panel.y + 150f;
+        if (DrawGoldButton(panel, ref y, "EXAM DEMO")) currentPage = MenuPage.ChallengeRuns;
         if (DrawButton(panel, ref y, "SELECT LEVEL", true)) currentPage = MenuPage.LevelSelect;
-        if (DrawButton(panel, ref y, "CHALLENGE RUNS", true)) currentPage = MenuPage.ChallengeRuns;
         if (DrawButton(panel, ref y, "SETTINGS", true)) currentPage = MenuPage.Settings;
         if (DrawButton(panel, ref y, "QUIT", true)) QuitGame();
     }
@@ -212,6 +213,17 @@ public class MainMenuController : MonoBehaviour
         return pressed;
     }
 
+    private bool DrawGoldButton(Rect panel, ref float y, string text)
+    {
+        Color previousBackground = GUI.backgroundColor;
+        GUI.backgroundColor = new Color(1f, 0.68f, 0.08f, 1f);
+        Rect rect = new Rect(panel.x + 50f, y, panel.width - 100f, 52f);
+        bool pressed = GUI.Button(rect, text, goldButtonStyle);
+        GUI.backgroundColor = previousBackground;
+        y += 66f;
+        return pressed;
+    }
+
     private void BuildStyles()
     {
         backgroundTexture = new Texture2D(1, 1);
@@ -236,6 +248,11 @@ public class MainMenuController : MonoBehaviour
         };
         buttonStyle.normal.textColor = Color.white;
         buttonStyle.hover.textColor = new Color(1f, 0.82f, 0.3f);
+
+        goldButtonStyle = new GUIStyle(buttonStyle);
+        goldButtonStyle.normal.textColor = Color.white;
+        goldButtonStyle.hover.textColor = Color.white;
+        goldButtonStyle.active.textColor = Color.white;
 
         lockedButtonStyle = new GUIStyle(buttonStyle);
         lockedButtonStyle.normal.textColor = new Color(0.45f, 0.49f, 0.48f);

@@ -13,8 +13,9 @@ public class ChallengeHunterAI : MonoBehaviour
     }
 
     [Header("Movement")]
-    [SerializeField] private float moveSpeed = 3.8f;
-    [SerializeField] private float chaseSpeed = 5.2f;
+    [SerializeField] private float moveSpeed = 2.2f;
+    [SerializeField] private float chaseSpeed = 2.2f;
+    [SerializeField] private float investigationSpeed = 4f;
     [SerializeField] private float wanderRadius = 14f;
 
     [Header("Sight")]
@@ -65,6 +66,7 @@ public class ChallengeHunterAI : MonoBehaviour
         }
 
         configured = true;
+        agent.speed = moveSpeed;
         player = playerTarget;
         GeneratorInteraction[] generators = FindObjectsOfType<GeneratorInteraction>(true);
         for (int i = 0; i < generators.Length; i++)
@@ -143,7 +145,7 @@ public class ChallengeHunterAI : MonoBehaviour
 
     private void UpdateInvestigation()
     {
-        agent.speed = moveSpeed;
+        agent.speed = investigationSpeed;
         agent.SetDestination(investigationPosition);
         if (!HasReachedDestination())
         {
@@ -188,9 +190,15 @@ public class ChallengeHunterAI : MonoBehaviour
             return;
         }
 
-        investigationPosition = generator.transform.position;
+        investigationPosition = generator.InteractionPosition;
+        if (NavMesh.SamplePosition(investigationPosition, out NavMeshHit hit, 4f, NavMesh.AllAreas))
+        {
+            investigationPosition = hit.position;
+        }
+
         lastKnownPlayerPosition = investigationPosition;
         state = HunterState.Investigate;
+        agent.speed = investigationSpeed;
         if (agent.isOnNavMesh)
         {
             agent.SetDestination(investigationPosition);
@@ -277,14 +285,14 @@ public class ChallengeHunterAI : MonoBehaviour
         GameObject holder = GameObject.CreatePrimitive(PrimitiveType.Cube);
         holder.name = "Hunter Flashlight";
         holder.transform.SetParent(transform, false);
-        holder.transform.localPosition = new Vector3(0.35f, 0.25f, 0.55f);
-        holder.transform.localScale = new Vector3(0.16f, 0.16f, 0.5f);
+        holder.transform.localPosition = new Vector3(0f, 0.68f, 0.38f);
+        holder.transform.localScale = new Vector3(0.18f, 0.18f, 0.32f);
         holder.GetComponent<Renderer>().material.color = new Color(0.08f, 0.08f, 0.07f, 1f);
         Destroy(holder.GetComponent<Collider>());
 
         GameObject lightObject = new GameObject("Hunter Spotlight");
         lightObject.transform.SetParent(transform, false);
-        lightObject.transform.localPosition = new Vector3(0.35f, 0.35f, 0.85f);
+        lightObject.transform.localPosition = new Vector3(0f, 0.72f, 0.58f);
         flashlight = lightObject.AddComponent<Light>();
         flashlight.type = LightType.Spot;
         flashlight.color = new Color(1f, 0.93f, 0.72f, 1f);
@@ -293,4 +301,5 @@ public class ChallengeHunterAI : MonoBehaviour
         flashlight.spotAngle = 55f;
         flashlight.shadows = LightShadows.Hard;
     }
+
 }

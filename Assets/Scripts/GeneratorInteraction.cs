@@ -20,6 +20,9 @@ public class GeneratorInteraction : MonoBehaviour
     public bool IsDisabled => isDisabled;
     public Light ControlledLight => bulbLight;
     public Renderer ControlledRenderer => bulbRenderer;
+    public Vector3 InteractionPosition => interactionCollider != null
+        ? interactionCollider.bounds.center
+        : (interactionPoint != null ? interactionPoint.position : transform.position);
 
     private void Awake()
     {
@@ -33,7 +36,9 @@ public class GeneratorInteraction : MonoBehaviour
             return false;
         }
 
-        return GetDistanceTo(player) <= interactRadius && HasClearLineOfSight(player);
+        return GetDistanceTo(player) <= interactRadius &&
+            HasClearLineOfSight(player) &&
+            IsPlayerAimingAtGenerator(player);
     }
 
     public float GetDistanceTo(Transform player)
@@ -250,6 +255,41 @@ public class GeneratorInteraction : MonoBehaviour
         return HasClearPath(start, end, player);
     }
 
+    private bool IsPlayerAimingAtGenerator(Transform player)
+    {
+        Camera playerCamera = player.GetComponentInChildren<Camera>(true);
+        if (playerCamera == null)
+        {
+            playerCamera = Camera.main;
+        }
+
+        if (playerCamera == null)
+        {
+            return true;
+        }
+
+        Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+        RaycastHit[] hits = Physics.RaycastAll(
+            ray,
+            interactRadius + 1f,
+            Physics.DefaultRaycastLayers,
+            QueryTriggerInteraction.Ignore);
+        Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Transform hit = hits[i].collider.transform;
+            if (hit == player || hit.IsChildOf(player) || player.IsChildOf(hit))
+            {
+                continue;
+            }
+
+            return hit == transform || hit.IsChildOf(transform) || transform.IsChildOf(hit);
+        }
+
+        return false;
+    }
+
     private bool HasClearPath(Vector3 start, Vector3 end, Transform player)
     {
         Vector3 direction = end - start;
@@ -366,7 +406,8 @@ public class GeneratorInteraction : MonoBehaviour
     private static bool IsEnemyLight(Light candidate)
     {
         return candidate.GetComponentInParent<EnemyPatrol>() != null ||
-            candidate.GetComponentInParent<GuardVisionDamage>() != null;
+            candidate.GetComponentInParent<GuardVisionDamage>() != null ||
+            candidate.GetComponentInParent<ChallengeHunterAI>() != null;
     }
 
     private static bool IsBulbName(string objectName)
