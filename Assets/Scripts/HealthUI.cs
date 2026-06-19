@@ -6,6 +6,13 @@ public class HealthUI : MonoBehaviour
     [SerializeField] private Health playerHealth;
     [SerializeField] private Text healthText;
 
+    private Health subscribedHealth;
+
+    public bool IsBoundTo(Health health)
+    {
+        return subscribedHealth == health && healthText != null;
+    }
+
     private void Awake()
     {
         if (healthText == null)
@@ -16,19 +23,47 @@ public class HealthUI : MonoBehaviour
 
     private void OnEnable()
     {
-        if (playerHealth != null)
-        {
-            playerHealth.OnHealthChanged += UpdateText;
-            UpdateText(playerHealth.CurrentHealth, playerHealth.MaxHealth);
-        }
+        BindToPlayer();
+    }
+
+    private void Start()
+    {
+        BindToPlayer();
     }
 
     private void OnDisable()
     {
-        if (playerHealth != null)
+        if (subscribedHealth != null)
         {
-            playerHealth.OnHealthChanged -= UpdateText;
+            subscribedHealth.OnHealthChanged -= UpdateText;
+            subscribedHealth = null;
         }
+    }
+
+    private void BindToPlayer()
+    {
+        if (playerHealth == null)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+            {
+                playerHealth = player.GetComponent<Health>();
+            }
+        }
+
+        if (playerHealth == null || subscribedHealth == playerHealth)
+        {
+            return;
+        }
+
+        if (subscribedHealth != null)
+        {
+            subscribedHealth.OnHealthChanged -= UpdateText;
+        }
+
+        subscribedHealth = playerHealth;
+        subscribedHealth.OnHealthChanged += UpdateText;
+        UpdateText(subscribedHealth.CurrentHealth, subscribedHealth.MaxHealth);
     }
 
     private void UpdateText(int currentHealth, int maxHealth)

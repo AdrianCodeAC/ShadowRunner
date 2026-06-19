@@ -9,22 +9,14 @@ public class SceneGameplayBootstrap : MonoBehaviour
         Scene activeScene = SceneManager.GetActiveScene();
 
         GameObject player = FindInSceneByTag(activeScene, "Player");
+        if (player == null)
+        {
+            player = FindInSceneByName(activeScene, "Player");
+        }
+
         if (player != null)
         {
-            if (player.GetComponent<PlayerRespawn>() == null)
-            {
-                player.AddComponent<PlayerRespawn>();
-            }
-
-            if (player.GetComponent<PlayerInteractor>() == null)
-            {
-                player.AddComponent<PlayerInteractor>();
-            }
-
-            if (player.GetComponent<ShadowStatusUI>() == null)
-            {
-                player.AddComponent<ShadowStatusUI>();
-            }
+            EnsurePlayerSetup(player);
         }
 
         if (activeScene.name == "level 2")
@@ -49,6 +41,29 @@ public class SceneGameplayBootstrap : MonoBehaviour
                 exitDoor.AddComponent<LevelExitDoor>();
             }
         }
+    }
+
+    private static void EnsurePlayerSetup(GameObject player)
+    {
+        EnsureComponent<Health>(player);
+        EnsureComponent<Rigidbody>(player);
+        EnsureComponent<PlayerMovement>(player);
+        EnsureComponent<ShadowExposureDamage>(player);
+        EnsureComponent<PlayerRespawn>(player);
+        EnsureComponent<PlayerInteractor>(player);
+        EnsureComponent<ShadowStatusUI>(player);
+
+        Camera playerCamera = player.GetComponentInChildren<Camera>(true);
+        if (playerCamera != null)
+        {
+            EnsureComponent<MouseLook>(playerCamera.gameObject);
+        }
+    }
+
+    private static T EnsureComponent<T>(GameObject target) where T : Component
+    {
+        T component = target.GetComponent<T>();
+        return component != null ? component : target.AddComponent<T>();
     }
 
     private static GameObject FindInSceneByName(Scene scene, string objectName)
