@@ -64,6 +64,13 @@ public class ShadowExposureDamage : MonoBehaviour
         lightSources = FindObjectsOfType<Light>();
     }
 
+    public void ConfigureStandardRates()
+    {
+        damagePerSecond = 35f;
+        lightDamageMultiplier = 2f;
+        darkRegenDelaySeconds = 3f;
+    }
+
     private void Update()
     {
         checkTimer += Time.deltaTime;

@@ -46,6 +46,12 @@ public class PlayerInteractor : MonoBehaviour
     private GeneratorInteraction FindClosestGenerator()
     {
         GeneratorInteraction[] generators = FindObjectsOfType<GeneratorInteraction>();
+        if (generators.Length == 0)
+        {
+            TryInstallGeneratorInteraction();
+            generators = FindObjectsOfType<GeneratorInteraction>();
+        }
+
         GeneratorInteraction closest = null;
         float closestDistance = searchRadius;
 
@@ -66,6 +72,31 @@ public class PlayerInteractor : MonoBehaviour
         }
 
         return closest;
+    }
+
+    private static void TryInstallGeneratorInteraction()
+    {
+        UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            InstallInHierarchy(roots[i].transform, false);
+        }
+    }
+
+    private static void InstallInHierarchy(Transform current, bool generatorAncestor)
+    {
+        bool isGenerator = current.name.ToLowerInvariant().Contains("generator");
+        if (isGenerator && !generatorAncestor && current.GetComponent<GeneratorInteraction>() == null)
+        {
+            current.gameObject.AddComponent<GeneratorInteraction>();
+        }
+
+        bool hasGeneratorAncestor = generatorAncestor || isGenerator;
+        for (int i = 0; i < current.childCount; i++)
+        {
+            InstallInHierarchy(current.GetChild(i), hasGeneratorAncestor);
+        }
     }
 
     private bool IsInteractPressed()

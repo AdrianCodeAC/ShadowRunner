@@ -17,11 +17,10 @@ public class EnemyPatrol : MonoBehaviour
     [SerializeField] private float holdSecondsAtWaypoint = 5f;
 
     [Header("Three Point Lookout")]
-    [SerializeField] private int middleWaypointIndex = 1;
+    [SerializeField] private string middleWaypointName = "w2_mid";
     [SerializeField] private float endpointHoldSeconds = 2f;
     [SerializeField] private float middleHoldSeconds = 5f;
     [SerializeField] private string playerSpawnName = "PlayerSpawn";
-    [SerializeField] private float middleLookYawOffset = 180f;
 
     private Rigidbody rb;
     private int currentWaypointIndex;
@@ -32,6 +31,7 @@ public class EnemyPatrol : MonoBehaviour
     private readonly List<GameObject> runtimeWaypointObjects = new List<GameObject>();
     private bool usingFallbackWaypoints;
     private Transform playerSpawn;
+    private bool usesLevelFourFacing;
 
     private void Awake()
     {
@@ -42,6 +42,7 @@ public class EnemyPatrol : MonoBehaviour
 
         lookoutRotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
         ResolveWaypoints();
+        ConfigureLevelFourPatrol();
         ResolvePlayerSpawn();
         currentWaypointIndex = usingFallbackWaypoints && waypoints.Length > 1 ? 1 : 0;
     }
@@ -111,6 +112,11 @@ public class EnemyPatrol : MonoBehaviour
 
     private void FaceHoldDirection()
     {
+        if (TryFaceLevelFourWaypoint())
+        {
+            return;
+        }
+
         if (!IsMiddleLookout() || playerSpawn == null)
         {
             FaceLookoutDirection();
@@ -125,12 +131,16 @@ public class EnemyPatrol : MonoBehaviour
         }
 
         Quaternion spawnRotation = Quaternion.LookRotation(toSpawn.normalized, Vector3.up);
-        spawnRotation *= Quaternion.Euler(0f, middleLookYawOffset, 0f);
         rb.MoveRotation(Quaternion.Slerp(rb.rotation, spawnRotation, turnSpeed * Time.fixedDeltaTime));
     }
 
     private float GetCurrentHoldSeconds()
     {
+        if (usesLevelFourFacing)
+        {
+            return holdSecondsAtWaypoint;
+        }
+
         if (waypoints.Length != 3)
         {
             return holdSecondsAtWaypoint;
@@ -141,7 +151,14 @@ public class EnemyPatrol : MonoBehaviour
 
     private bool IsMiddleLookout()
     {
-        return waypoints.Length == 3 && currentWaypointIndex == middleWaypointIndex;
+        if (waypoints.Length != 3 || currentWaypointIndex < 0 || currentWaypointIndex >= waypoints.Length)
+        {
+            return false;
+        }
+
+        Transform currentWaypoint = waypoints[currentWaypointIndex];
+        return currentWaypoint != null &&
+            string.Equals(currentWaypoint.name, middleWaypointName, System.StringComparison.OrdinalIgnoreCase);
     }
 
     private void ResolvePlayerSpawn()
@@ -229,12 +246,106 @@ public class EnemyPatrol : MonoBehaviour
         CreateRuntimeWaypoint($"{name}_Waypoint_B", start + patrolDirection * fallbackPatrolDistance, resolved);
     }
 
-    private void CreateRuntimeWaypoint(string waypointName, Vector3 position, List<Transform> resolved)
+    private Transform CreateRuntimeWaypoint(string waypointName, Vector3 position, List<Transform> resolved)
     {
         GameObject waypoint = new GameObject(waypointName);
         waypoint.transform.SetPositionAndRotation(position, lookoutRotation);
         SceneManager.MoveGameObjectToScene(waypoint, gameObject.scene);
         runtimeWaypointObjects.Add(waypoint);
         resolved.Add(waypoint.transform);
+        return waypoint.transform;
+    }
+
+    private void ConfigureLevelFourPatrol()
+    {
+        if (!string.Equals(gameObject.scene.name, "level 4", System.StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        bool isEnemyOne = string.Equals(name, "enemy 1", System.StringComparison.OrdinalIgnoreCase);
+        bool isEnemyTwo = string.Equals(name, "enemy 2", System.StringComparison.OrdinalIgnoreCase);
+        usesLevelFourFacing = isEnemyOne || isEnemyTwo;
+
+        if (!isEnemyTwo)
+        {
+            return;
+        }
+
+        Transform middle = FindTransformInScene("w21 (1)");
+        List<Transform> route = new List<Transform>(waypoints);
+        if (middle == null && route.Count >= 2)
+        {
+            Vector3 midpoint = Vector3.Lerp(route[0].position, route[1].position, 0.5f);
+            List<Transform> generated = new List<Transform>();
+            middle = CreateRuntimeWaypoint("w21 (1)", midpoint, generated);
+        }
+
+        if (middle != null && !route.Contains(middle))
+        {
+            route.Insert(Mathf.Min(1, route.Count), middle);
+        }
+
+        waypoints = route.ToArray();
+    }
+
+    private bool TryFaceLevelFourWaypoint()
+    {
+        if (!usesLevelFourFacing || currentWaypointIndex < 0 || currentWaypointIndex >= waypoints.Length)
+        {
+            return false;
+        }
+
+        Transform waypoint = waypoints[currentWaypointIndex];
+        if (waypoint == null)
+        {
+            return false;
+        }
+
+        string waypointName = waypoint.name;
+        bool useYaw270 =
+            (string.Equals(name, "enemy 1", System.StringComparison.OrdinalIgnoreCase) &&
+             string.Equals(waypointName, "w12", System.StringComparison.OrdinalIgnoreCase)) ||
+            (string.Equals(name, "enemy 2", System.StringComparison.OrdinalIgnoreCase) &&
+             (string.Equals(waypointName, "w21 (1)", System.StringComparison.OrdinalIgnoreCase) ||
+              string.Equals(waypointName, "w22", System.StringComparison.OrdinalIgnoreCase)));
+
+        Quaternion targetRotation = useYaw270 ? Quaternion.Euler(0f, 270f, 0f) : lookoutRotation;
+        rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, turnSpeed * Time.fixedDeltaTime));
+        return true;
+    }
+
+    private Transform FindTransformInScene(string objectName)
+    {
+        GameObject[] roots = gameObject.scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            Transform match = FindTransformRecursive(roots[i].transform, objectName);
+            if (match != null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static Transform FindTransformRecursive(Transform root, string objectName)
+    {
+        if (string.Equals(root.name, objectName, System.StringComparison.OrdinalIgnoreCase))
+        {
+            return root;
+        }
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform match = FindTransformRecursive(root.GetChild(i), objectName);
+            if (match != null)
+            {
+                return match;
+            }
+        }
+
+        return null;
     }
 }

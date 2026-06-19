@@ -26,7 +26,7 @@ public class GeneratorInteraction : MonoBehaviour
             return false;
         }
 
-        return GetDistanceTo(player) <= interactRadius;
+        return GetDistanceTo(player) <= interactRadius && HasClearLineOfSight(player);
     }
 
     public float GetDistanceTo(Transform player)
@@ -74,21 +74,12 @@ public class GeneratorInteraction : MonoBehaviour
 
     private void ResolveBulb()
     {
-        interactionPoint = FindChildRecursive(transform, "generator");
-        if (interactionPoint != null)
+        interactionCollider = GetComponent<Collider>();
+        if (interactionCollider == null)
         {
-            interactionCollider = interactionPoint.GetComponent<Collider>();
+            interactionCollider = GetComponentInChildren<Collider>(true);
         }
-
-        GameObject bulbObject = GameObject.Find("bulb");
-        if (bulbObject != null)
-        {
-            bulbRenderer = bulbObject.GetComponent<Renderer>();
-            if (bulbLight == null)
-            {
-                bulbLight = bulbObject.GetComponent<Light>();
-            }
-        }
+        interactionPoint = interactionCollider != null ? interactionCollider.transform : transform;
 
         if (bulbLight == null)
         {
@@ -106,6 +97,16 @@ public class GeneratorInteraction : MonoBehaviour
                     bulbLight = bulbTransform.GetComponent<Light>();
                 }
             }
+        }
+
+        if (bulbLight == null)
+        {
+            bulbLight = FindNearestAvailableLight();
+        }
+
+        if (bulbRenderer == null)
+        {
+            bulbRenderer = FindNearestAvailableBulbRenderer();
         }
 
         if (bulbLight == null)
@@ -128,6 +129,144 @@ public class GeneratorInteraction : MonoBehaviour
         {
             exposureComponents[i].RefreshLightSources();
         }
+    }
+
+    private bool HasClearLineOfSight(Transform player)
+    {
+        Vector3 start = player.position;
+        Collider playerCollider = player.GetComponent<Collider>();
+        if (playerCollider == null)
+        {
+            playerCollider = player.GetComponentInChildren<Collider>();
+        }
+        if (playerCollider != null)
+        {
+            start = playerCollider.bounds.center;
+        }
+
+        Vector3 end = interactionCollider != null
+            ? interactionCollider.ClosestPoint(start)
+            : interactionPoint.position;
+        Vector3 direction = end - start;
+        float distance = direction.magnitude;
+        if (distance <= 0.01f)
+        {
+            return true;
+        }
+
+        RaycastHit[] hits = Physics.RaycastAll(
+            start,
+            direction / distance,
+            distance,
+            Physics.DefaultRaycastLayers,
+            QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Transform hit = hits[i].collider.transform;
+            if (hit == player || hit.IsChildOf(player) || hit == transform || hit.IsChildOf(transform))
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private Light FindNearestAvailableLight()
+    {
+        Light closest = null;
+        float closestSqrDistance = float.PositiveInfinity;
+        Light[] lights = FindObjectsOfType<Light>(true);
+
+        for (int i = 0; i < lights.Length; i++)
+        {
+            Light candidate = lights[i];
+            if (candidate == null || candidate.gameObject.scene != gameObject.scene ||
+                candidate.type == LightType.Directional ||
+                IsEnemyLight(candidate) || IsLightClaimedByAnotherGenerator(candidate))
+            {
+                continue;
+            }
+
+            float sqrDistance = (candidate.transform.position - transform.position).sqrMagnitude;
+            if (sqrDistance < closestSqrDistance)
+            {
+                closestSqrDistance = sqrDistance;
+                closest = candidate;
+            }
+        }
+
+        return closest;
+    }
+
+    private Renderer FindNearestAvailableBulbRenderer()
+    {
+        Renderer closest = null;
+        float closestSqrDistance = float.PositiveInfinity;
+        Renderer[] renderers = FindObjectsOfType<Renderer>(true);
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer candidate = renderers[i];
+            if (candidate == null || candidate.gameObject.scene != gameObject.scene ||
+                !IsBulbName(candidate.name) || candidate.GetComponentInParent<EnemyPatrol>() != null ||
+                IsRendererClaimedByAnotherGenerator(candidate))
+            {
+                continue;
+            }
+
+            float sqrDistance = (candidate.transform.position - transform.position).sqrMagnitude;
+            if (sqrDistance < closestSqrDistance)
+            {
+                closestSqrDistance = sqrDistance;
+                closest = candidate;
+            }
+        }
+
+        return closest;
+    }
+
+    private bool IsLightClaimedByAnotherGenerator(Light candidate)
+    {
+        GeneratorInteraction[] generators = FindObjectsOfType<GeneratorInteraction>(true);
+        for (int i = 0; i < generators.Length; i++)
+        {
+            if (generators[i] != this && generators[i].bulbLight == candidate)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsRendererClaimedByAnotherGenerator(Renderer candidate)
+    {
+        GeneratorInteraction[] generators = FindObjectsOfType<GeneratorInteraction>(true);
+        for (int i = 0; i < generators.Length; i++)
+        {
+            if (generators[i] != this && generators[i].bulbRenderer == candidate)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsEnemyLight(Light candidate)
+    {
+        return candidate.GetComponentInParent<EnemyPatrol>() != null ||
+            candidate.GetComponentInParent<GuardVisionDamage>() != null;
+    }
+
+    private static bool IsBulbName(string objectName)
+    {
+        string lowered = objectName.ToLowerInvariant();
+        return lowered.Contains("bulb") || lowered.Contains("light");
     }
 
     private static Transform FindChildRecursive(Transform root, string nameContains)

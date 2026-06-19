@@ -28,7 +28,23 @@ public class HealthUI : MonoBehaviour
 
     private void Start()
     {
+        if (FindObjectOfType<ShadowStatusUI>() != null)
+        {
+            HideLegacyIndicator();
+            return;
+        }
+
         BindToPlayer();
+    }
+
+    private void HideLegacyIndicator()
+    {
+        if (healthText != null)
+        {
+            healthText.enabled = false;
+        }
+
+        enabled = false;
     }
 
     private void OnDisable()

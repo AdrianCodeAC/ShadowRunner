@@ -1,12 +1,22 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.IO;
+using System.Collections;
 
 public class SceneGameplayBootstrap : MonoBehaviour
 {
+    private static SceneGameplayBootstrap runner;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void RegisterSceneLoadCallback()
     {
+        if (runner == null)
+        {
+            GameObject runnerObject = new GameObject("Scene Gameplay Bootstrap");
+            DontDestroyOnLoad(runnerObject);
+            runner = runnerObject.AddComponent<SceneGameplayBootstrap>();
+        }
+
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
@@ -20,12 +30,28 @@ public class SceneGameplayBootstrap : MonoBehaviour
     private static void OnSceneLoaded(Scene scene, LoadSceneMode loadMode)
     {
         SetupScene(scene);
+        if (runner != null)
+        {
+            runner.StartCoroutine(SetupSceneAfterAwake(scene));
+        }
+    }
+
+    private static IEnumerator SetupSceneAfterAwake(Scene scene)
+    {
+        yield return null;
+        SetupScene(scene);
     }
 
     private static void SetupScene(Scene scene)
     {
         if (!scene.isLoaded)
         {
+            return;
+        }
+
+        if (string.Equals(scene.name, "menu", System.StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureMainMenu(scene);
             return;
         }
 
@@ -40,11 +66,7 @@ public class SceneGameplayBootstrap : MonoBehaviour
             EnsurePlayerSetup(player);
         }
 
-        GameObject generator = FindInSceneByName(scene, "generator");
-        if (generator != null && generator.GetComponent<GeneratorInteraction>() == null)
-        {
-            generator.AddComponent<GeneratorInteraction>();
-        }
+        EnsureGeneratorSetup(scene);
 
         GameObject exitDoor = FindInSceneByName(scene, "ending");
         if (exitDoor == null && scene.name == "level 1")
@@ -65,6 +87,22 @@ public class SceneGameplayBootstrap : MonoBehaviour
         }
     }
 
+    private static void EnsureMainMenu(Scene scene)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            if (roots[i].GetComponentInChildren<MainMenuController>(true) != null)
+            {
+                return;
+            }
+        }
+
+        GameObject menuController = new GameObject("Main Menu Controller");
+        SceneManager.MoveGameObjectToScene(menuController, scene);
+        menuController.AddComponent<MainMenuController>();
+    }
+
     private static string GetNextSceneName(Scene scene)
     {
         int buildIndex = SceneUtility.GetBuildIndexByScenePath(scene.path);
@@ -83,15 +121,43 @@ public class SceneGameplayBootstrap : MonoBehaviour
         EnsureComponent<Health>(player);
         EnsureComponent<Rigidbody>(player);
         EnsureComponent<PlayerMovement>(player);
-        EnsureComponent<ShadowExposureDamage>(player);
+        ShadowExposureDamage exposure = EnsureComponent<ShadowExposureDamage>(player);
+        exposure.ConfigureStandardRates();
+        exposure.RefreshLightSources();
         EnsureComponent<PlayerRespawn>(player);
         EnsureComponent<PlayerInteractor>(player);
         EnsureComponent<ShadowStatusUI>(player);
+        EnsureComponent<PauseMenuController>(player);
+        EnsureComponent<PlayerAudioFeedback>(player);
 
         Camera playerCamera = player.GetComponentInChildren<Camera>(true);
         if (playerCamera != null)
         {
             EnsureComponent<MouseLook>(playerCamera.gameObject);
+        }
+    }
+
+    private static void EnsureGeneratorSetup(Scene scene)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int i = 0; i < roots.Length; i++)
+        {
+            EnsureGeneratorsInHierarchy(roots[i].transform, false);
+        }
+    }
+
+    private static void EnsureGeneratorsInHierarchy(Transform current, bool generatorAncestor)
+    {
+        bool isGenerator = current.name.ToLowerInvariant().Contains("generator");
+        if (isGenerator && !generatorAncestor && current.GetComponent<GeneratorInteraction>() == null)
+        {
+            current.gameObject.AddComponent<GeneratorInteraction>();
+        }
+
+        bool hasGeneratorAncestor = generatorAncestor || isGenerator;
+        for (int i = 0; i < current.childCount; i++)
+        {
+            EnsureGeneratorsInHierarchy(current.GetChild(i), hasGeneratorAncestor);
         }
     }
 

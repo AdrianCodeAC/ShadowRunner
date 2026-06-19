@@ -26,6 +26,7 @@ public class LevelExitDoor : MonoBehaviour
 
         if (!string.IsNullOrEmpty(nextSceneName))
         {
+            LevelProgress.UnlockAfterCompleting(gameObject.scene);
             SceneManager.LoadScene(nextSceneName);
         }
     }
